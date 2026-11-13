@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Security.Cryptography;
 using System.Text;
-using Android;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
@@ -53,13 +52,13 @@ public class MainActivity : AvaloniaMainActivity<App>
         
         if (Build.VERSION.SdkInt >= BuildVersionCodes.S) {
 #pragma warning disable CA1416
-            ActivityCompat.RequestPermissions(this, [Manifest.Permission.BluetoothConnect], RequestBluetoothPermission);
+            ActivityCompat.RequestPermissions(this, [global::Android.Manifest.Permission.BluetoothConnect], RequestBluetoothPermission);
 #pragma warning restore CA1416
         }
-        else if (Build.VERSION.SdkInt >= BuildVersionCodes.M && ContextCompat.CheckSelfPermission(this, Manifest.Permission.AccessFineLocation) != Permission.Granted)
+        else if (Build.VERSION.SdkInt >= BuildVersionCodes.M && ContextCompat.CheckSelfPermission(this, global::Android.Manifest.Permission.AccessFineLocation) != Permission.Granted)
         {
-            Toast.MakeText(this, "Location permission required to scan for Bluetooth devices nearby.", ToastLength.Long);
-            ActivityCompat.RequestPermissions(this, [Manifest.Permission.AccessFineLocation], RequestBluetoothPermission);
+            Toast.MakeText(this, "Location permission required to scan for Bluetooth devices nearby.", ToastLength.Long)?.Show();
+            ActivityCompat.RequestPermissions(this, [global::Android.Manifest.Permission.AccessFineLocation], RequestBluetoothPermission);
         }
     }
     
@@ -74,7 +73,7 @@ public class MainActivity : AvaloniaMainActivity<App>
             return;
         }
 
-        string rawId = Android.Provider.Settings.Secure.GetString(ContentResolver, Android.Provider.Settings.Secure.AndroidId) ?? "DEFAULT_DEVICE_ID";
+        string rawId = global::Android.Provider.Settings.Secure.GetString(ContentResolver, global::Android.Provider.Settings.Secure.AndroidId) ?? "DEFAULT_DEVICE_ID";
         string deviceCode = GetHash(rawId + "GB_SALT_2026").Substring(0, 8).ToUpper();
         string expectedKey = GetHash("AUTH_" + deviceCode + "_SECRET_KEY_9988").Substring(0, 8).ToUpper();
 
@@ -99,41 +98,40 @@ public class MainActivity : AvaloniaMainActivity<App>
             Hint = "请输入8位激活卡密"
         };
         input.SetSingleLine(true);
-        input.SetFilters([new Android.Text.InputFilterLengthFilter(16)]);
+        input.SetFilters([new global::Android.Text.InputFilterLengthFilter(16)]);
 
         var layout = new LinearLayout(this)
         {
-            Orientation = Android.Widget.Orientation.Vertical
+            Orientation = global::Android.Widget.Orientation.Vertical
         };
         layout.SetPadding(60, 20, 60, 20);
         layout.AddView(input);
 
-        var dialog = new AlertDialog.Builder(this)
-            .SetTitle("🔒 软件专属授权激活")
-            .SetMessage($"欢迎使用 Galaxy Buds 耳机专属降噪调音与固件管理工具！\n\n您的机器码：{deviceCode}\n（已自动复制，直接粘贴发给卖家获取卡密）\n\n请输入激活卡密：")
-            .SetView(layout)
-            .SetCancelable(false)
-            .SetPositiveButton("立即激活", (sender, args) =>
+        var builder = new AlertDialog.Builder(this);
+        builder.SetTitle("🔒 软件专属授权激活");
+        builder.SetMessage($"欢迎使用 Galaxy Buds 耳机专属降噪调音与固件管理工具！\n\n您的机器码：{deviceCode}\n（已自动复制，直接粘贴发给卖家获取卡密）\n\n请输入激活卡密：");
+        builder.SetView(layout);
+        builder.SetCancelable(false);
+        builder.SetPositiveButton("立即激活", (sender, args) =>
+        {
+            string enteredKey = input.Text?.Trim().ToUpper() ?? "";
+            if (enteredKey == expectedKey || enteredKey == "VIP88888888")
             {
-                string enteredKey = input.Text?.Trim().ToUpper() ?? "";
-                if (enteredKey == expectedKey || enteredKey == "VIP88888888")
-                {
-                    prefs.Edit()?.PutBoolean("is_activated", true)?.Apply();
-                    Toast.MakeText(this, "✅ 授权激活成功！欢迎使用。", ToastLength.Long)?.Show();
-                }
-                else
-                {
-                    Toast.MakeText(this, "❌ 激活卡密错误，请联系卖家核对！", ToastLength.Long)?.Show();
-                    Finish();
-                }
-            })
-            .SetNegativeButton("退出软件", (sender, args) =>
+                prefs.Edit()?.PutBoolean("is_activated", true)?.Apply();
+                Toast.MakeText(this, "✅ 授权激活成功！欢迎使用。", ToastLength.Long)?.Show();
+            }
+            else
             {
+                Toast.MakeText(this, "❌ 激活卡密错误，请联系卖家核对！", ToastLength.Long)?.Show();
                 Finish();
-            })
-            .Create();
-
-        dialog?.Show();
+            }
+        });
+        builder.SetNegativeButton("退出软件", (sender, args) =>
+        {
+            Finish();
+        });
+        
+        builder.Show();
     }
 
     private static string GetHash(string input)
@@ -150,11 +148,11 @@ public class MainActivity : AvaloniaMainActivity<App>
         {
             // Check if the only required permission has been granted
             if (grantResults is not [Permission.Granted]) {    
-                new AlertDialog.Builder(this)?
-                    .SetTitle("Required permissions not granted")?
-                    .SetMessage("Cannot start without the required Bluetooth permissions. Please visit the system settings to grant the missing permissions manually.")?
-                    .SetNegativeButton("Close app", (_, _) => Finish())
-                    .Show();
+                var builder = new AlertDialog.Builder(this);
+                builder.SetTitle("Required permissions not granted");
+                builder.SetMessage("Cannot start without the required Bluetooth permissions. Please visit the system settings to grant the missing permissions manually.");
+                builder.SetNegativeButton("Close app", (_, _) => Finish());
+                builder.Show();
             }
         } 
         else 
