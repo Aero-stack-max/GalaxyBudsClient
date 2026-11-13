@@ -1,0 +1,78 @@
+name: Compile Android APK
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v6
+      with:
+        submodules: recursive
+
+    - name: Setup JDK 21
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        global-json-file: global.json
+
+    - name: Install Android SDK Platforms
+      run: |
+        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-35" "platforms;android-36" || true
+
+    - name: Install .NET Android Workload
+      run: |
+        dotnet workload install android
+
+    - name: Generate Release Keystore
+      run: |
+        keytool -genkeypair -v -keystore $GITHUB_WORKSPACE/release.keystore \
+          -alias release \
+          -keyalg RSA \
+          -keysize 2048 \
+          -validity 10000 \
+          -storepass 123456 \
+          -keypass 123456 \
+          -dname "CN=GalaxyBudsClient, OU=Dev, O=Dev, L=City, S=State, C=US"
+
+    - name: Restore dependencies
+      run: |
+        dotnet restore --configfile GalaxyBudsClient/nuget.config GalaxyBudsClient.Android/GalaxyBudsClient.Android.csproj
+
+    - name: Publish Android APK (Full Version)
+      run: |
+        dotnet publish GalaxyBudsClient.Android/GalaxyBudsClient.Android.csproj \
+          -f net10.0-android36.1 \
+          -c Release \
+          -p:AndroidKeyStore=true \
+          -p:AndroidSigningKeyStore=$GITHUB_WORKSPACE/release.keystore \
+          -p:AndroidSigningKeyAlias=release \
+          -p:AndroidSigningKeyPass=123456 \
+          -p:AndroidSigningStorePass=123456 \
+          -p:AndroidPackageFormats=apk \
+          -p:EmbedAssembliesIntoApk=true \
+          -p:NotDebuggable=true \
+          -p:IsAndroid=true \
+          -p:NoDemo=true
+
+    - name: Collect APK Files
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/output_apk
+        find GalaxyBudsClient.Android -name "*.apk" -exec cp -v {} $GITHUB_WORKSPACE/output_apk/ \;
+        ls -la $GITHUB_WORKSPACE/output_apk/
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v6
+      with:
+        name: GalaxyBudsClient-Android-APK
+        path: ${{ github.workspace }}/output_apk/*.apk
